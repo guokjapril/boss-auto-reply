@@ -1,0 +1,53 @@
+# BOSS直聘自动复聊脚本 — 配置文件
+
+browser:
+  headless: false               # 首次扫码建议 false，后续可改为 true
+  user_data_dir: "./data/browser_state"
+  viewport:
+    width: 1280
+    height: 800
+  locale: "zh-CN"
+  timezone_id: "Asia/Shanghai"
+
+monitor:
+  poll_interval: 10             # 轮询间隔（秒）
+  max_pages: 5                  # 最大翻页数
+  chat_list_url: "https://www.zhipin.com/web/chat/index"
+
+reply:
+  mode: "template"              # "template" | "ai"
+  rate_limit_per_hour: 50       # 每小时最大回复数，超过则暂停
+  min_delay: 1.0                # 最小操作延迟（秒）
+  max_delay: 3.0                # 最大操作延迟（秒）
+  default_reply: "您好，看到您的消息了，方便的话我们可以进一步沟通～"
+  templates:
+    - keywords: ["你好", "您好", "在吗", "hi", "hello"]
+      reply: "您好！感谢关注，方便发一份您的简历吗？"
+    - keywords: ["薪资", "待遇", "工资", "多少钱"]
+      reply: "薪资范围根据经验和能力面议，您方便的话可以先聊聊～"
+    - keywords: ["面试", "面聊", "聊聊"]
+      reply: "好的，您看什么时间方便？我们可以安排一个电话或视频面试。"
+    - keywords: ["岗位", "职位", "招聘", "还在招"]
+      reply: "是的，岗位还在招聘中，您感兴趣的话可以发一份简历过来～"
+    - keywords: ["谢谢", "感谢", "好的", "了解了"]
+      reply: "不客气，有什么问题随时沟通！"
+
+ai:
+  provider: "openai"            # "openai" | "claude" | "custom"
+  api_key: ""                   # 填写你的 API key
+  base_url: ""                  # 可选，自定义 endpoint
+  model: "gpt-4o-mini"          # 模型名称
+  max_tokens: 200
+  temperature: 0.7
+  timeout: 15                   # 请求超时（秒）
+  context: |
+    你是一个招聘HR助手，正在BOSS直聘上与候选人沟通。
+    你需要根据候选人的消息生成友好、专业的回复。
+    回复要求：简短（不超过100字）、礼貌、引导候选人进一步沟通。
+    %s
+
+logging:
+  level: "INFO"                 # DEBUG | INFO | WARNING | ERROR
+  file: "./data/bot.log"
+  max_bytes: 10485760           # 10MB 轮转
+  backup_count: 3

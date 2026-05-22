@@ -1,0 +1,24 @@
+# 构建产物
+dist/
+build/
+*.spec
+
+# 运行时数据
+data/browser_state/
+data/*.log
+data/processed_messages.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
