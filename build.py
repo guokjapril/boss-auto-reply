@@ -12,6 +12,10 @@ import shutil
 import subprocess
 from pathlib import Path
 
+# 修复 Windows CI 中文编码问题
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 
 ROOT = Path(__file__).resolve().parent
 DIST = ROOT / "dist"
