@@ -73,10 +73,36 @@ def build(target: str = None):
     if exe_path.exists():
         size_mb = exe_path.stat().st_size / (1024 * 1024)
         print(f"\n[DONE] 打包完成: {exe_path} ({size_mb:.1f} MB)")
-        print(f"[NOTE] 首次运行会自动下载 Chromium 浏览器内核（约 150MB），请耐心等待。")
+        print(f"[NOTE] 首次运行会自动下载 Firefox 浏览器内核（约 120MB），请耐心等待。")
     else:
         print("[ERROR] 打包失败，产物未找到")
         sys.exit(1)
+
+    # 生成 Windows 启动脚本
+    _create_run_bat()
+    # 复制配置文件到 dist/
+    _copy_config()
+
+
+def _create_run_bat():
+    bat_path = DIST / "run.bat"
+    content = (
+        "@echo off\r\n"
+        'title BOSS直聘自动复聊\r\n'
+        'cd /d "%~dp0"\r\n'
+        'set PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright/\r\n'
+        '"%~dp0BossAutoReply.exe"\r\n'
+        "pause\r\n"
+    )
+    bat_path.write_text(content, encoding="gbk")
+    print(f"[DONE] run.bat 已生成: {bat_path}")
+
+
+def _copy_config():
+    cfg_src = ROOT / "config.yaml"
+    cfg_dst = DIST / "config.yaml"
+    shutil.copy2(cfg_src, cfg_dst)
+    print(f"[DONE] config.yaml 已复制: {cfg_dst}")
 
 
 if __name__ == "__main__":

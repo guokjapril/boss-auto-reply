@@ -24,23 +24,22 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Install Playwright Chromium
+      - name: Install Playwright Firefox
         run: |
-          python -m playwright install chromium
-          # 记录 chromium 安装路径方便后续打包
-          python -c "import playwright.sync_api; p = playwright.sync_api.sync_playwright().start(); print(p.chromium.executable_path); p.stop()"
+          python -m playwright install firefox
 
       - name: Build EXE
         run: python build.py
 
-      - name: Bundle Chromium with EXE
+      - name: Bundle Firefox with EXE
         shell: pwsh
         run: |
           $cacheDir = "$env:USERPROFILE\AppData\Local\ms-playwright"
           if (Test-Path $cacheDir) {
             Copy-Item -Recurse $cacheDir "dist\ms-playwright"
           }
-          Compress-Archive -Path "dist\BossAutoReply.exe", "dist\ms-playwright" -DestinationPath "dist\BossAutoReply-Windows.zip"
+          # build.py 已生成 run.bat 和 config.yaml 到 dist/
+          Compress-Archive -Path "dist\*" -DestinationPath "dist\BossAutoReply-Windows.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
