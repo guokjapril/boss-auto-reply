@@ -41,58 +41,33 @@ class MessageMonitor:
     async def navigate_to_chat(self, page: Page):
         self.logger.info("正在进入消息列表…")
 
-        # 先尝试直接进入聊天页
-        await page.goto(self.CHAT_URL, wait_until="domcontentloaded", timeout=60000)
-        await asyncio.sleep(3)
-
-        current_url = page.url
-        self.logger.info("当前页面: %s", current_url)
-
-        # 如果被重定向到引导页，尝试各种方式跳过
-        if "guide" in current_url or ("chat" not in current_url and "zhipin.com" in current_url):
-            self.logger.info("检测到引导页，尝试跳过…")
-
-            # 方式1：查找各种可能的按钮
-            skip_selectors = [
-                'text=跳过', 'text=我知道了', 'text=下次再说', 'text=立即体验',
-                'text=开始', 'text=完成', 'text=确认', 'text=保存',
-                '.guide-skip', '.skip-btn', '[class*="skip"]',
-                '.close-btn', '.guide-close', '.van-icon-cross',
-                'button:has-text("跳过")', 'button:has-text("完成")',
-                '.btn-next', '.guide-next', '[class*="next"]',
-                'text=下一步', 'text=好的',
-            ]
-            clicked = False
-            for sel in skip_selectors:
-                try:
-                    btn = page.locator(sel).first
-                    if await btn.count() > 0 and await btn.is_visible():
-                        self.logger.info("点击: %s", sel)
-                        await btn.click()
-                        await asyncio.sleep(1)
-                        clicked = True
-                except Exception:
-                    continue
-
-            # 方式2：按 Enter 键
-            if not clicked:
-                try:
-                    await page.keyboard.press("Escape")
-                    await asyncio.sleep(1)
-                except Exception:
-                    pass
-
-            # 方式3：尝试直接跳转到 geek/chat
-            await page.goto("https://www.zhipin.com/web/geek/chat", wait_until="domcontentloaded", timeout=60000)
+        for attempt in range(3):
+            await page.goto(self.CHAT_URL, wait_until="domcontentloaded", timeout=60000)
             await asyncio.sleep(3)
-            current_url = page.url
-            self.logger.info("尝试 geek/chat 后页面: %s", current_url)
 
-            # 方式4：再次直接跳转 chat/index
-            if "chat" not in current_url:
-                await page.goto(self.CHAT_URL, wait_until="domcontentloaded", timeout=60000)
-                await asyncio.sleep(3)
-                self.logger.info("最终页面: %s", page.url)
+            current_url = page.url
+            self.logger.info("当前页面: %s (第%d次)", current_url, attempt + 1)
+
+            if "chat" in current_url:
+                self.logger.info("已进入消息列表")
+                return
+
+            # 如果被重定向，尝试点击跳过引导
+            if "guide" in current_url:
+                self.logger.info("检测到引导页，尝试跳过…")
+                for sel in ['text=跳过', 'text=我知道了', 'text=完成', 'text=好的',
+                            '.guide-skip', '.skip-btn', 'button:has-text("跳过")']:
+                    try:
+                        btn = page.locator(sel).first
+                        if await btn.count() > 0 and await btn.is_visible():
+                            await btn.click()
+                            await asyncio.sleep(1)
+                    except Exception:
+                        continue
+
+            self.logger.info("未进入聊天页，重试…")
+
+        self.logger.warning("多次尝试后仍在: %s，继续轮询", page.url)
 
     async def poll(self, page: Page, on_new_message: Callable, reply_engine) -> None:
         poll_interval = self.cfg.get("poll_interval", 10)
@@ -125,10 +100,13 @@ class MessageMonitor:
             await asyncio.sleep(poll_interval)
 
     async def _check_page_health(self, page: Page) -> bool:
-        """检查页面是否健康（未被反爬重定向到空白页）。"""
         try:
             url = page.url
-            if not url or "about:blank" in url or "zhipin.com" not in url:
+            if not url or "about:blank" in url:
+                return False
+            if "zhipin.com" not in url:
+                return False
+            if "chat" not in url:
                 return False
             return True
         except Exception:
