@@ -7,7 +7,7 @@ import sys
 
 import yaml
 
-from src.paths import resource_path, resolve_dir
+from src.paths import resource_path, resolve_dir, base_dir
 from src.browser import BrowserManager
 from src.login import LoginHandler
 from src.monitor import MessageMonitor
@@ -16,11 +16,12 @@ from src.logger import setup_logger
 
 
 def load_config() -> dict:
-    cfg_path = resource_path("config.yaml")
+    # 优先读取 exe 同目录的 config.yaml（用户可编辑），否则用内置默认配置
+    external_cfg = base_dir() / "config.yaml"
+    cfg_path = external_cfg if external_cfg.exists() else resource_path("config.yaml")
     with open(cfg_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
-    # 将相对路径转为绝对路径
     config["browser"]["user_data_dir"] = resolve_dir(config["browser"]["user_data_dir"])
     config["logging"]["file"] = resolve_dir(config["logging"]["file"])
     return config

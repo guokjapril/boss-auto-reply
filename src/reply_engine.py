@@ -62,11 +62,43 @@ class ReplyEngine:
         return self._match_template(message)
 
     def _match_template(self, message: str) -> str:
+        """智能匹配：负面检测 + 多关键词打分 + 长度权重。"""
         templates = self.cfg.get("templates", [])
-        for tpl in templates:
+        # 检测负面词
+        negative_words = ["不", "没", "别", "无", "算了", "免了", "不考虑了"]
+        has_negative = any(w in message for w in negative_words)
+
+        scored = []
+        for idx, tpl in enumerate(templates):
+            score = 0
+            best_kw_len = 0
+            is_negative_tpl = tpl.get("negative", False)
+
             for kw in tpl.get("keywords", []):
                 if kw in message:
-                    return tpl["reply"]
+                    score += len(kw)  # 关键词越长权重越高
+                    best_kw_len = max(best_kw_len, len(kw))
+
+            if score == 0:
+                continue
+
+            # 负面场景：负面模板加分，非负面模板扣分
+            if has_negative:
+                if is_negative_tpl:
+                    score *= 3  # 负面消息优先匹配负面场景
+                else:
+                    score //= 2  # 降低正面场景匹配度
+
+            # 配置中越靠前的模板有微小优先级加成
+            score += max(0, 10 - idx) // 3
+
+            scored.append((score, best_kw_len, tpl["reply"]))
+
+        if scored:
+            # 按总分配降序，同分按关键词长度降序
+            scored.sort(key=lambda x: (x[0], x[1]), reverse=True)
+            return scored[0][2]
+
         return self.cfg.get("default_reply", "您好，看到您的消息了～")
 
     def _check_rate_limit(self) -> bool:

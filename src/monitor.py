@@ -40,8 +40,59 @@ class MessageMonitor:
 
     async def navigate_to_chat(self, page: Page):
         self.logger.info("正在进入消息列表…")
-        await page.goto(self.CHAT_URL, wait_until="domcontentloaded")
+
+        # 先尝试直接进入聊天页
+        await page.goto(self.CHAT_URL, wait_until="load")
         await asyncio.sleep(3)
+
+        current_url = page.url
+        self.logger.info("当前页面: %s", current_url)
+
+        # 如果被重定向到引导页，尝试各种方式跳过
+        if "guide" in current_url or ("chat" not in current_url and "zhipin.com" in current_url):
+            self.logger.info("检测到引导页，尝试跳过…")
+
+            # 方式1：查找各种可能的按钮
+            skip_selectors = [
+                'text=跳过', 'text=我知道了', 'text=下次再说', 'text=立即体验',
+                'text=开始', 'text=完成', 'text=确认', 'text=保存',
+                '.guide-skip', '.skip-btn', '[class*="skip"]',
+                '.close-btn', '.guide-close', '.van-icon-cross',
+                'button:has-text("跳过")', 'button:has-text("完成")',
+                '.btn-next', '.guide-next', '[class*="next"]',
+                'text=下一步', 'text=好的',
+            ]
+            clicked = False
+            for sel in skip_selectors:
+                try:
+                    btn = page.locator(sel).first
+                    if await btn.count() > 0 and await btn.is_visible():
+                        self.logger.info("点击: %s", sel)
+                        await btn.click()
+                        await asyncio.sleep(1)
+                        clicked = True
+                except Exception:
+                    continue
+
+            # 方式2：按 Enter 键
+            if not clicked:
+                try:
+                    await page.keyboard.press("Escape")
+                    await asyncio.sleep(1)
+                except Exception:
+                    pass
+
+            # 方式3：尝试直接跳转到 geek/chat
+            await page.goto("https://www.zhipin.com/web/geek/chat", wait_until="load")
+            await asyncio.sleep(3)
+            current_url = page.url
+            self.logger.info("尝试 geek/chat 后页面: %s", current_url)
+
+            # 方式4：再次直接跳转 chat/index
+            if "chat" not in current_url:
+                await page.goto(self.CHAT_URL, wait_until="load")
+                await asyncio.sleep(3)
+                self.logger.info("最终页面: %s", page.url)
 
     async def poll(self, page: Page, on_new_message: Callable, reply_engine) -> None:
         poll_interval = self.cfg.get("poll_interval", 10)
@@ -50,6 +101,13 @@ class MessageMonitor:
 
         while True:
             try:
+                # 检查页面健康状态
+                if not await self._check_page_health(page):
+                    self.logger.warning("页面异常，尝试恢复到聊天页…")
+                    await page.goto(self.CHAT_URL, wait_until="domcontentloaded")
+                    await asyncio.sleep(3)
+                    continue
+
                 new_messages = await self._scan_messages(page, max_pages)
                 for msg in new_messages:
                     msg_id = self._make_msg_id(msg["name"], msg["text"])
@@ -65,6 +123,16 @@ class MessageMonitor:
                 self.logger.error("轮询异常: %s", e)
 
             await asyncio.sleep(poll_interval)
+
+    async def _check_page_health(self, page: Page) -> bool:
+        """检查页面是否健康（未被反爬重定向到空白页）。"""
+        try:
+            url = page.url
+            if not url or "about:blank" in url or "zhipin.com" not in url:
+                return False
+            return True
+        except Exception:
+            return False
 
     async def _scan_messages(self, page: Page, max_pages: int) -> list[dict]:
         messages = []
