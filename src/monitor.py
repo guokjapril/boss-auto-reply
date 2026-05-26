@@ -48,26 +48,38 @@ class MessageMonitor:
             current_url = page.url
             self.logger.info("当前页面: %s (第%d次)", current_url, attempt + 1)
 
-            if "chat" in current_url:
+            if "chat" in current_url and "guide" not in current_url:
                 self.logger.info("已进入消息列表")
                 return
 
-            # 如果被重定向，尝试点击跳过引导
             if "guide" in current_url:
                 self.logger.info("检测到引导页，尝试跳过…")
-                for sel in ['text=跳过', 'text=我知道了', 'text=完成', 'text=好的',
-                            '.guide-skip', '.skip-btn', 'button:has-text("跳过")']:
-                    try:
-                        btn = page.locator(sel).first
-                        if await btn.count() > 0 and await btn.is_visible():
-                            await btn.click()
-                            await asyncio.sleep(1)
-                    except Exception:
-                        continue
+                await self._skip_guide(page)
 
             self.logger.info("未进入聊天页，重试…")
 
-        self.logger.warning("多次尝试后仍在: %s，继续轮询", page.url)
+        self.logger.warning("多次尝试后仍在: %s", page.url)
+
+    async def _skip_guide(self, page: Page):
+        """尝试跳过 BOSS直聘新手引导页。"""
+        for sel in ['text=跳过', 'text=我知道了', 'text=下一步', 'text=完成',
+                    'text=好的', 'text=开始', 'button:has-text("跳过")',
+                    '.guide-skip', '[class*="skip"]']:
+            try:
+                btn = page.locator(sel).first
+                if await btn.count() > 0 and await btn.is_visible():
+                    await btn.click()
+                    await asyncio.sleep(1.5)
+                    self.logger.info("点击引导按钮: %s", sel)
+                    return
+            except Exception:
+                continue
+        # 按键兜底
+        try:
+            await page.keyboard.press("Escape")
+            await asyncio.sleep(1)
+        except Exception:
+            pass
 
     async def poll(self, page: Page, on_new_message: Callable, reply_engine) -> None:
         poll_interval = self.cfg.get("poll_interval", 10)

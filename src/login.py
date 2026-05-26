@@ -19,6 +19,8 @@ class LoginHandler:
     async def ensure_logged_in(self, page: Page) -> bool:
         self.logger.info("正在检查登录状态…")
 
+        await self._setup_about_blank_guard(page)
+
         await page.goto(self.BOSS_URL, wait_until="domcontentloaded")
         await asyncio.sleep(2)
 
@@ -29,6 +31,25 @@ class LoginHandler:
             return True
 
         return await self._qr_login(page)
+
+    async def _setup_about_blank_guard(self, page: Page):
+        """只拦截主页面导航到 about:blank，子资源请求直接放行。"""
+        async def handle_route(route):
+            if not route.request.is_navigation_request():
+                await route.continue_()
+                return
+            try:
+                response = await route.fetch()
+                loc = (response.headers.get("location") or "").lower()
+                if response.status in (301, 302, 303, 307, 308) and "about:blank" in loc:
+                    self.logger.debug("拦截到 about:blank 重定向，已阻止")
+                    await route.abort()
+                    return
+                await route.fulfill(response=response)
+            except Exception:
+                await route.continue_()
+
+        await page.route("**/*", handle_route)
 
     async def _check_page_health(self, page: Page, fallback_url: str = None) -> bool:
         if fallback_url is None:
