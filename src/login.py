@@ -19,8 +19,6 @@ class LoginHandler:
     async def ensure_logged_in(self, page: Page) -> bool:
         self.logger.info("正在检查登录状态…")
 
-        await self._block_blank_redirects(page)
-
         await page.goto(self.BOSS_URL, wait_until="domcontentloaded")
         await asyncio.sleep(2)
 
@@ -28,38 +26,9 @@ class LoginHandler:
 
         if await self._is_logged_in(page):
             self.logger.info("已登录，跳过扫码流程")
-            await self._unblock_redirects(page)
             return True
 
-        result = await self._qr_login(page)
-        if result:
-            await self._unblock_redirects(page)
-        return result
-
-    async def _block_blank_redirects(self, page: Page):
-        """拦截所有 HTTP 重定向到 about:blank 的请求。"""
-        async def handle_route(route):
-            try:
-                response = await route.fetch()
-                if response.status in (301, 302, 303, 307, 308):
-                    loc = (response.headers.get("location") or "").lower()
-                    if "about:blank" in loc or loc == "about:blank":
-                        self.logger.debug("拦截到 about:blank 重定向，已阻止")
-                        await route.abort()
-                        return
-                await route.fulfill(response=response)
-            except Exception:
-                await route.continue_()
-
-        self._route_handler = handle_route
-        await page.route("**/*", handle_route)
-
-    async def _unblock_redirects(self, page: Page):
-        """登录完成后移除 about:blank 拦截，避免干扰聊天页资源加载。"""
-        if hasattr(self, '_route_handler') and self._route_handler:
-            await page.unroute("**/*", self._route_handler)
-            self._route_handler = None
-            self.logger.debug("已移除 about:blank 拦截")
+        return await self._qr_login(page)
 
     async def _check_page_health(self, page: Page, fallback_url: str = None) -> bool:
         if fallback_url is None:
