@@ -3,6 +3,7 @@ import os
 import random
 import sys
 from pathlib import Path
+from typing import Optional
 
 from playwright.async_api import async_playwright, Browser, Page, BrowserContext
 
@@ -15,10 +16,10 @@ class BrowserManager:
         self.cfg = config
         self.logger = setup_logger()
         self._playwright = None
-        self._browser: Browser | None = None
-        self._context: BrowserContext | None = None
-        self._page: Page | None = None
-        self._firefox_exe: str | None = None
+        self._browser: Optional[Browser] = None
+        self._context: Optional[BrowserContext] = None
+        self._page: Optional[Page] = None
+        self._firefox_exe: Optional[str] = None
 
     async def start(self) -> Page:
         self._firefox_exe = self._find_firefox()
@@ -51,7 +52,7 @@ class BrowserManager:
         self.logger.info("Firefox 浏览器已启动")
         return self._page
 
-    def _find_firefox(self) -> str | None:
+    def _find_firefox(self) -> Optional[str]:
         """查找 Firefox 可执行文件，优先使用捆绑的 ms-playwright 目录。"""
         bundled = base_dir() / "ms-playwright"
         if bundled.exists():

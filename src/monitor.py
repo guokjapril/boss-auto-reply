@@ -114,11 +114,7 @@ class MessageMonitor:
     async def _check_page_health(self, page: Page) -> bool:
         try:
             url = page.url
-            if not url or "about:blank" in url:
-                return False
-            if "zhipin.com" not in url:
-                return False
-            if "chat" not in url:
+            if not url or "about:blank" in url or "zhipin.com" not in url:
                 return False
             return True
         except Exception:
