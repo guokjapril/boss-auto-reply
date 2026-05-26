@@ -42,7 +42,7 @@ class MessageMonitor:
         self.logger.info("正在进入消息列表…")
 
         # 先尝试直接进入聊天页
-        await page.goto(self.CHAT_URL, wait_until="load")
+        await page.goto(self.CHAT_URL, wait_until="domcontentloaded", timeout=60000)
         await asyncio.sleep(3)
 
         current_url = page.url
@@ -83,14 +83,14 @@ class MessageMonitor:
                     pass
 
             # 方式3：尝试直接跳转到 geek/chat
-            await page.goto("https://www.zhipin.com/web/geek/chat", wait_until="load")
+            await page.goto("https://www.zhipin.com/web/geek/chat", wait_until="domcontentloaded", timeout=60000)
             await asyncio.sleep(3)
             current_url = page.url
             self.logger.info("尝试 geek/chat 后页面: %s", current_url)
 
             # 方式4：再次直接跳转 chat/index
             if "chat" not in current_url:
-                await page.goto(self.CHAT_URL, wait_until="load")
+                await page.goto(self.CHAT_URL, wait_until="domcontentloaded", timeout=60000)
                 await asyncio.sleep(3)
                 self.logger.info("最终页面: %s", page.url)
 
