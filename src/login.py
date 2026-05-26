@@ -46,7 +46,7 @@ class LoginHandler:
                         return
                 await route.fulfill(response=response)
             except Exception:
-                await route.abort()
+                await route.continue_()
 
         await page.route("**/*", handle_route)
 
